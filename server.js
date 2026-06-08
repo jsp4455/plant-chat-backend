@@ -49,6 +49,11 @@ io.on('connection', (socket) => {
         }
     });
 
+  socket.on("unsave_on_board", (id) => {
+  savedMessageIds = savedMessageIds.filter(savedId => savedId !== id);
+  io.emit("saved_message_ids", savedMessageIds);
+});
+
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
     });
