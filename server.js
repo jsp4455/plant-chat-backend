@@ -12,21 +12,25 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
-// ⭐ NEW: store all messages
+// ⭐ Temporary messages (do NOT survive refresh)
+let liveMessages = [];
+
+// ⭐ Permanent saved messages (survive refresh)
 let messages = [];
 
-// ⭐ NEW: store saved message IDs
+// ⭐ IDs of saved messages
 let savedMessageIds = [];
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    // ⭐ Send full history to new user
+    // Send ONLY saved messages
     socket.emit("message_history", messages);
 
-    // ⭐ Send saved IDs so highlights load
+    // Send saved IDs so highlights load
     socket.emit("saved_message_ids", savedMessageIds);
 
+    // Handle new message
     socket.on('send_message', (msg) => {
         const message = {
             id: Date.now(),
@@ -35,24 +39,32 @@ io.on('connection', (socket) => {
             time: new Date().toLocaleTimeString()
         };
 
-        // ⭐ Save message in history
-        messages.push(message);
+        // Store in temporary live list
+        liveMessages.push(message);
 
         io.emit('new_message', message);
     });
 
-    // ⭐ Save message on board
+    // ⭐ Save message permanently
     socket.on("save_on_board", (id) => {
+        const msg = liveMessages.find(m => m.id === id);
+
+        if (msg && !messages.find(m => m.id === id)) {
+            messages.push(msg); // store permanently
+        }
+
         if (!savedMessageIds.includes(id)) {
             savedMessageIds.push(id);
             io.emit("saved_message_ids", savedMessageIds);
         }
     });
 
-  socket.on("unsave_on_board", (id) => {
-  savedMessageIds = savedMessageIds.filter(savedId => savedId !== id);
-  io.emit("saved_message_ids", savedMessageIds);
-});
+    // ⭐ Unsave message (remove from permanent)
+    socket.on("unsave_on_board", (id) => {
+        savedMessageIds = savedMessageIds.filter(x => x !== id);
+        messages = messages.filter(m => m.id !== id);
+        io.emit("saved_message_ids", savedMessageIds);
+    });
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
