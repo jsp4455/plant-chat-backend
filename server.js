@@ -12,13 +12,19 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
+// ⭐ NEW: store all messages
+let messages = [];
+
 // ⭐ NEW: store saved message IDs
 let savedMessageIds = [];
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    // ⭐ Send saved IDs to new users so their board highlights correctly
+    // ⭐ Send full history to new user
+    socket.emit("message_history", messages);
+
+    // ⭐ Send saved IDs so highlights load
     socket.emit("saved_message_ids", savedMessageIds);
 
     socket.on('send_message', (msg) => {
@@ -29,10 +35,13 @@ io.on('connection', (socket) => {
             time: new Date().toLocaleTimeString()
         };
 
+        // ⭐ Save message in history
+        messages.push(message);
+
         io.emit('new_message', message);
     });
 
-    // ⭐ NEW: sender promotes a message to "saved on board"
+    // ⭐ Save message on board
     socket.on("save_on_board", (id) => {
         if (!savedMessageIds.includes(id)) {
             savedMessageIds.push(id);
